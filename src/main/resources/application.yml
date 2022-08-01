@@ -1,0 +1,7 @@
+
+elastic:
+  address: localhost:9200
+
+index:
+  coordinates:
+    company: company
