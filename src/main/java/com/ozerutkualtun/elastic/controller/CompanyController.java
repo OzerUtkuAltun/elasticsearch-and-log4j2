@@ -3,6 +3,8 @@ package com.ozerutkualtun.elastic.controller;
 import com.ozerutkualtun.elastic.model.Company;
 import com.ozerutkualtun.elastic.repository.CompanyRepository;
 import lombok.RequiredArgsConstructor;
+import org.elasticsearch.common.unit.Fuzziness;
+import org.elasticsearch.index.query.Operator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -42,10 +44,28 @@ public class CompanyController {
     public List<SearchHit<Company>> searchCompanies(@RequestParam String searchTerm) {
 
         final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-                .withQuery(matchQuery("description", searchTerm))
+                .withQuery(matchQuery("description", searchTerm).operator(Operator.AND)) // operator(Operator.AND)) kısmı full text search için -> exact match'de tek sonuç döndürür.
                 .build();
 
         return elasticsearchOperations.search(searchQuery, Company.class, IndexCoordinates.of(companyIndexCoordinates)).getSearchHits();
+    }
+
+
+    /*
+    Kullanıcılar arama yaparken yazım hataları yapabilirler. Bu tür bir senaryoyu ele almak için fuziness kavramı kullanılmaktadır.
+    Böylelikle arama için gönderilen text, kayıtlarla tamamen eşleşmiyorsa bile yine de bir sonuç üretmek mümkün olmaktadır.
+
+     */
+    @GetMapping("/fuzzy-search")
+    public List<SearchHit<Company>> getCompaniesByFuzzyDescription(@RequestParam String searchTerm) {
+        final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+                .withQuery(matchQuery("description", searchTerm)
+                        .operator(Operator.AND)
+                        .fuzziness(Fuzziness.ONE) // tek yanlış harfi tolere ediyor.
+                        .prefixLength(2))
+                .build();
+        return elasticsearchOperations.search(searchQuery, Company.class,
+                IndexCoordinates.of(companyIndexCoordinates)).getSearchHits();
     }
 
 }
